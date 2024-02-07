@@ -1,0 +1,49 @@
+Version: 0.1
+
+phases:
+ pre_builds:
+    
+    commands:
+       - echo Logging into AWS EC2 on 'date"
+       - aws --version
+       - echo Logging into AWS EC2....
+       - aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin 197828115234.dkr.ecr.eu-north-1.amazonaws.com
+       - echo setting repository URI....
+       - REPOSITORY_URI=197828115234.dkr.ecr.eu-north-1.amazonaws.com/test_repo
+       - echo setting image tag....
+       - IMAGE_TAG= build-$(echo $CODEBUILD_BUILD_ID | awk -F":"'{print $2}')
+       
+ Build:
+    
+    
+    commands: 
+       
+       - echo building and tagging started image on 'date'
+       - echo running mvn clean intall ...
+       - mvn clean install 
+       - echo building the docker image for test apoplication
+       - docker build -t $REPOSITORY_URI:latest .
+       - echo tagging the Docker image ....
+       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+       
+       
+ Post_build:
+     
+     
+    commands:
+      
+       - echo pushimg image into ECR started on 'date'
+       - echo pushing to repository..
+       - docker push $REPOSITORY_URI:latest
+       - docker push $REPOSITORY_URI:$IMAGE_TAG
+       - echo setting container name...
+       - DOCKER_CONTAINER_NAME=testcontainer
+       - echo writing image defenition file....
+       - printf'[{'name:"%s","imageUri":"%s"'}]' $DOCKER_CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinition.json
+       - echo $DOCKER_CONTAINER_NAME
+       - echo printing imagedefinition.json
+       - cat imagedefinition.json
+       
+ artifcats:
+   files: 
+     -imagedefinition.json
